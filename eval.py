@@ -57,8 +57,6 @@ async def fetch(session: aiohttp.ClientSession, url: str, model: str) -> Request
 
             # 从返回的参数里获取生成的 token 的数量
             assert isinstance(response_json, dict)
-            if not hasattr(response_json, "usage"):
-                raise KeyError("Missing 'usage' in response")
             completion_tokens = response_json.get("usage", {}).get("completion_tokens")
             if completion_tokens is None:
                 raise KeyError("Missing 'usage' or 'completion_tokens' in response")

@@ -1,3 +1,4 @@
+import os
 import time
 import aiohttp
 import asyncio
@@ -13,7 +14,9 @@ class RequestResult(NamedTuple):
     error: Optional[Exception]
 
 
-async def fetch(session: aiohttp.ClientSession, url: str, model: str) -> RequestResult:
+async def fetch(
+    session: aiohttp.ClientSession, url: str, model: str, token: str | None = None
+) -> RequestResult:
     """
     发送一个异步请求到指定的URL。
 
@@ -30,6 +33,11 @@ async def fetch(session: aiohttp.ClientSession, url: str, model: str) -> Request
     error = None
     success = False
 
+    if token is not None:
+        header = {"Authorization": f"Bearer {token}"}
+    else:
+        header = {"Authorization": f"Bearer {os.environ.get('API_TOKEN', "")}"}
+
     json_payload = {
         "model": model,
         "messages": [{"role": "user", "content": "Why is the sky blue?"}],
@@ -41,7 +49,9 @@ async def fetch(session: aiohttp.ClientSession, url: str, model: str) -> Request
     timeout = aiohttp.ClientTimeout(total=3600)
 
     try:
-        async with session.post(url, json=json_payload, timeout=timeout) as response:
+        async with session.post(
+            url, json=json_payload, timeout=timeout, headers=header
+        ) as response:
             # 检查HTTP状态码
             if response.status != 200:
                 response_text = await response.text()
@@ -86,6 +96,7 @@ async def bounded_fetch(
     pbar: async_tqdm,
     url: str,
     model: str,
+    token: str | None = None,
 ) -> RequestResult:
     """
     使用信号量sem来限制并发请求的数量，确保不会超过最大并发请求数，并调用fetch。
@@ -93,14 +104,18 @@ async def bounded_fetch(
     """
     async with sem:
         # 在信号量内执行请求，确保并发限制
-        result = await fetch(session, url, model)
+        result = await fetch(session=session, url=url, model=model, token=token)
         # 无论成功或失败，都更新进度条表示一个任务完成
         pbar.update(1)
         return result
 
 
 async def run(
-    load_url: str, model: str, max_concurrent_requests: int, total_requests: int
+    load_url: str,
+    model: str,
+    max_concurrent_requests: int,
+    total_requests: int,
+    token: str | None = None,
 ) -> tuple[list[RequestResult], float]:
     """
     通过发送多个并发请求来运行基准测试。
@@ -127,7 +142,14 @@ async def run(
             for _ in range(total_requests):
                 # 为每个请求创建一个任务，确保它遵守信号量的限制
                 task = asyncio.create_task(
-                    bounded_fetch(sem, session, pbar, load_url, model)
+                    bounded_fetch(
+                        sem=sem,
+                        session=session,
+                        pbar=pbar,
+                        url=load_url,
+                        model=model,
+                        token=token,
+                    )
                 )
                 tasks.append(task)  # 将任务添加到任务列表中
 
@@ -165,6 +187,13 @@ if __name__ == "__main__":
         default="gpt-3.5-turbo",
         help="Model name to use in the request payload.",
     )
+    parser.add_argument(
+        "--token",
+        "-t",
+        type=str,
+        default=None,
+        help="Bearer token for API authentication.",
+    )
     args = parser.parse_args()
 
     full_url = f"{args.url.rstrip('/')}/v1/chat/completions"  # 确保没有双斜杠
@@ -174,7 +203,13 @@ if __name__ == "__main__":
     start_time = time.time()
     # 运行异步主函数并获取结果列表和结束时间
     all_results, end_async_time = asyncio.run(
-        run(full_url, args.model, args.concurrency, args.requests)
+        run(
+            load_url=full_url,
+            model=args.model,
+            max_concurrent_requests=args.concurrency,
+            total_requests=args.requests,
+            token=args.token,
+        )
     )
     # 计算总的执行时间，从脚本开始到 asyncio.run 结束
     total_process_time = time.time() - start_time

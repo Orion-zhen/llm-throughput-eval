@@ -21,7 +21,7 @@ pip install -r requirements.txt
 ### Go
 
 ```shell
-python evel.py -m <your model name> -u <target API URL> -n <total requests> -c <concurrencies>
+python evel.py -m <your model name> -u <target API URL> -n <total requests> -c <concurrencies> -t <API token>
 ```
 
 Example:
@@ -30,7 +30,7 @@ Example:
 python eval.py -m "qwq:32b"
 ```
 
-This will send 16 requests with 4 concurrency to local ollama API (should be http://127.0.0.1:11434) with model qwq:32b
+This will send 16 requests with 4 concurrency to local ollama API (should be <http://127.0.0.1:11434>) with model qwq:32b
 
 Full arguments:
 
@@ -47,6 +47,7 @@ options:
                         Total number of requests to send.
   --url, -u URL         Base URL for the API (e.g., http://localhost:8000). '/v1/chat/completions' will be appended.
   --model, -m MODEL     Model name to use in the request payload.
+  --token, -t TOKEN     Bearer token for API authentication.
 ```
 
 ## Credits

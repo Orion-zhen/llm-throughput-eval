@@ -36,7 +36,7 @@ async def fetch(
     if token is not None:
         header = {"Authorization": f"Bearer {token}"}
     else:
-        header = {"Authorization": f"Bearer {os.environ.get('API_TOKEN', "")}"}
+        header = {"Authorization": f"Bearer {os.environ.get('API_TOKEN', '')}"}
 
     json_payload = {
         "model": model,
